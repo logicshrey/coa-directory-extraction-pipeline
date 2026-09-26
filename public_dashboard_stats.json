@@ -1,0 +1,34 @@
+{
+  "snapshot_generated_at": "2026-09-26T12:39:57+00:00",
+  "tracks": {
+    "mock": {
+      "targeted": 65,
+      "success": 64,
+      "pending": 0,
+      "failed": 1,
+      "duplicates": 192,
+      "records": 195,
+      "captcha_events_total": 1,
+      "captcha_paused": 0,
+      "records_per_second_last_run": 202.23,
+      "last_activity_at": "2026-09-26T12:16:51.775392+00:00"
+    },
+    "live": {
+      "targeted": 3,
+      "success": 3,
+      "pending": 0,
+      "failed": 0,
+      "duplicates": 0,
+      "records": 9,
+      "captcha_events_total": 3,
+      "captcha_paused": 0,
+      "records_per_second_last_run": null,
+      "last_activity_at": "2026-09-26T12:09:00.071421+00:00"
+    }
+  },
+  "live_quota": {
+    "date": "2026-09-26",
+    "used": 3,
+    "limit": 3
+  }
+}

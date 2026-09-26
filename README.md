@@ -54,6 +54,17 @@ python pipeline.py solve-captcha --job-id 1 --code 'CAPTCHA_TEXT'
 
 **Live safety limits:** choose `--track live` explicitly for both `run` and `resume`; these commands otherwise default to mock. Live processing always forces one worker, regardless of `--workers`. The hard cap is **3 live POSTs per local calendar day**. It is persisted in `live_quota` in SQLite and cannot be raised through a CLI option. It is a per-local-database guard, not a cross-machine IP coordinator; do not run separate copies against the site to evade or exceed the site's anonymous limit. Respect the site's robots.txt and terms. Never automate CAPTCHA solving.
 
+## Read-only public dashboard on Render
+
+`public_dashboard.py` is a separate display-only entry point. It imports no extraction code and opens no database. It reads only `public_dashboard_stats.json`, an allow-listed aggregate snapshot, and serves `/` (HTML) and `/api` (JSON). Other paths return 404; POST, PUT, and DELETE return 405. It displays no individual architect fields and has no live-search or CAPTCHA routes. Locally, regenerate that aggregate-only snapshot with `python build_public_stats.py`; the builder runs aggregate SQL queries and does not select personal fields.
+
+The service uses only the Python standard library; `requirements.txt` intentionally contains no third-party dependencies. Configure the Render Web Service with:
+
+- **Build Command:** `pip install -r requirements.txt`
+- **Start Command:** `python public_dashboard.py`
+
+Render supplies `PORT`; the app reads it from the environment and binds to `0.0.0.0`. Commit `public_dashboard_stats.json` alongside the entry point. Refresh that aggregate snapshot locally after updating the private pipeline dataset and redeploy it. The public service never reads the database, CAPTCHA images, raw event log, or row-level dataset.
+
 ## Resume, status, dashboard, and export
 
 `resume` processes pending, failed, or interrupted (`in_progress`) jobs and skips successful jobs:
@@ -92,6 +103,7 @@ All project data is relative to this directory, `C:\Users\Shreyas\CoA Directory 
 - Session-bound CAPTCHA images: `captchas\job-N.jpg`
 - Current form field/dropdown lookup: `form_lookups.json`
 - Schema reference: `schema.sql`
+- Public dashboard aggregate snapshot: `public_dashboard_stats.json`
 
 ## Data fields and limits
 
@@ -106,6 +118,10 @@ The site is described as allowing three anonymous searches per IP per day and sh
 ## Project files
 
 - `pipeline.py`: CLI, database layer, parser, deduplication, mock and live adapters, quota ledger, and dashboard.
+- `public_dashboard.py`: public aggregate-only status page/API; no extraction or live-trigger routes.
+- `public_dashboard_stats.json`: sanitized counters and timestamps used by the public dashboard.
+- `build_public_stats.py`: local-only aggregate snapshot generator; never included in the deployed request path.
+- `requirements.txt`: documents that the public dashboard requires no external packages.
 - `mock_server.py`: isolated local fixture HTTP server.
 - `investigate.py`: GET-only form inspection and dropdown export.
 - `schema.sql`: SQLite schema reference.
