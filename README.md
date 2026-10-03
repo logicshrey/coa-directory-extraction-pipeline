@@ -54,16 +54,18 @@ python pipeline.py solve-captcha --job-id 1 --code 'CAPTCHA_TEXT'
 
 **Live safety limits:** choose `--track live` explicitly for both `run` and `resume`; these commands otherwise default to mock. Live processing always forces one worker, regardless of `--workers`. The hard cap is **3 live POSTs per local calendar day**. It is persisted in `live_quota` in SQLite and cannot be raised through a CLI option. It is a per-local-database guard, not a cross-machine IP coordinator; do not run separate copies against the site to evade or exceed the site's anonymous limit. Respect the site's robots.txt and terms. Never automate CAPTCHA solving.
 
-## Read-only public dashboard on Render
+## Interactive public demo on Render
 
-`public_dashboard.py` is a separate display-only entry point. It imports no extraction code and opens no database. It reads only `public_dashboard_stats.json`, an allow-listed aggregate snapshot, and serves `/` (HTML) and `/api` (JSON). Other paths return 404; POST, PUT, and DELETE return 405. It displays no individual architect fields and has no live-search or CAPTCHA routes. Locally, regenerate that aggregate-only snapshot with `python build_public_stats.py`; the builder runs aggregate SQL queries and does not select personal fields.
+`web_app.py` is a separate interactive entry point for grading. It imports the existing Track A functions from `pipeline.py`, adds fresh mock jobs, and runs them from the page. It displays the resulting synthetic mock records with filtering and pagination. Public visitors see Track B aggregate status only. Live controls require a short-lived administrator session created with the `ADMIN_ACCESS_CODE` environment variable; they reuse the existing live job, CAPTCHA, quota, and submit functions in `pipeline.py`.
 
 The service uses only the Python standard library; `requirements.txt` intentionally contains no third-party dependencies. Configure the Render Web Service with:
 
 - **Build Command:** `pip install -r requirements.txt`
-- **Start Command:** `python public_dashboard.py`
+- **Start Command:** `python web_app.py`
 
-Render supplies `PORT`; the app reads it from the environment and binds to `0.0.0.0`. Commit `public_dashboard_stats.json` alongside the entry point. Refresh that aggregate snapshot locally after updating the private pipeline dataset and redeploy it. The public service never reads the database, CAPTCHA images, raw event log, or row-level dataset.
+Render supplies `PORT`; the app reads it from the environment and binds to `0.0.0.0`. The interactive demo uses the pipeline database for mock rows and current aggregate counts. Keep the database persistent if you want demo history to survive redeploys.
+
+For local use, `web_app.py` loads `.env` without an extra dependency; `.env` is Git-ignored and `.env.example` documents the required values. Process environment values override `.env`. For Render, add `ADMIN_ACCESS_CODE` in Environment settings as a secret value. Use a long random string (for example, 32 or more random characters); never commit it to the repository. The administrator session expires after 15 minutes. The live site still enforces its independent three-search daily limit.
 
 ## Resume, status, dashboard, and export
 
@@ -86,7 +88,7 @@ python pipeline.py export
 
 ## Configuration and file locations
 
-There is no separate config file. The CLI options and fixed limits are:
+The CLI options and fixed limits are:
 
 - `add TARGET... --mode 1..6 --track mock|live`: mode is required; `--track` defaults to `mock`.
 - `run` / `resume --track mock|live --workers N`: workers defaults to 4 for mock. Live is always 1.
@@ -118,7 +120,8 @@ The site is described as allowing three anonymous searches per IP per day and sh
 ## Project files
 
 - `pipeline.py`: CLI, database layer, parser, deduplication, mock and live adapters, quota ledger, and dashboard.
-- `public_dashboard.py`: public aggregate-only status page/API; no extraction or live-trigger routes.
+- `public_dashboard.py`: previous aggregate-only status page/API.
+- `web_app.py`: interactive Track A demonstration interface and admin-gated Track B controls.
 - `public_dashboard_stats.json`: sanitized counters and timestamps used by the public dashboard.
 - `build_public_stats.py`: local-only aggregate snapshot generator; never included in the deployed request path.
 - `requirements.txt`: documents that the public dashboard requires no external packages.
