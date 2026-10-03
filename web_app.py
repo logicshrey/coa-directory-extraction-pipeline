@@ -83,9 +83,19 @@ def records(connection: sqlite3.Connection, track: str, term: str = "", page: in
     return rows, total
 
 def run_records(connection: sqlite3.Connection, run_id: int, track: str) -> list[sqlite3.Row]:
-    run = connection.execute("SELECT started_at,ended_at FROM extraction_runs WHERE id=? AND track=?", (run_id, track)).fetchone()
+    run = connection.execute("SELECT started_at FROM extraction_runs WHERE id=? AND track=?", (run_id, track)).fetchone()
     if not run: return []
-    return connection.execute("SELECT name,registration_number,year_of_registration,state,city,pincode,phone_normalized,email,is_duplicate FROM architects WHERE extraction_track=? AND extraction_timestamp>=? AND extraction_timestamp<=? ORDER BY id DESC", (track, run["started_at"], run["ended_at"] or pipeline.now())).fetchall()
+    # Live runs finish their CAPTCHA-preparation phase before the operator submits
+    # the answer, so their rows can be timestamped after extraction_runs.ended_at.
+    # Use the next run's start as the boundary; this includes those later rows and
+    # still keeps them out of older run views once a newer run has begun.
+    next_run = connection.execute("SELECT min(started_at) FROM extraction_runs WHERE track=? AND id>?", (track, run_id)).fetchone()[0]
+    sql = "SELECT name,registration_number,year_of_registration,state,city,pincode,phone_normalized,email,is_duplicate FROM architects WHERE extraction_track=? AND extraction_timestamp>=?"
+    params: list[object] = [track, run["started_at"]]
+    if next_run:
+        sql += " AND extraction_timestamp<?"
+        params.append(next_run)
+    return connection.execute(sql + " ORDER BY id DESC", params).fetchall()
 
 def table(rows: list[sqlite3.Row], empty: str) -> str:
     heads = ("Name","Registration number","Year","State","City","Pincode","Phone","Email","Duplicate status")
